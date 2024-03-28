@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "licenseplate_ocr"
+authors = [
+    { name = "Thura Tun" },
+]
+description = "License Plate OCR Web App"
+readme = "README.md"
+requires-python = ">=3.8.16"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: Ubuntu",
+]
+dynamic = ["version", "dependencies"]
+
+[tool.setuptools.dynamic]
+version = { attr = "licenseplate_ocr.VERSION" }
+dependencies = { file = ["requirements.txt"] }
