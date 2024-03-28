@@ -1,0 +1,20 @@
+license_ocr_env/
+build/
+
+# Log files
+*.log
+
+# Large media files
+*.mp4
+*.tiff
+*.avi
+*.flv
+*.mov
+*.wmv
+
+*.egg-info
+*.pth
+*.txt
+*.jpg
+*.jpeg
+*_env
