@@ -14,7 +14,11 @@ build/
 
 *.egg-info
 *.pth
+*.pb
 *.txt
 *.jpg
 *.jpeg
 *_env
+
+src/licenseplate_ocr/ocr_engine/weight_file/*.pth
+src/licenseplate_ocr/ocr_engine/sr_model_path/*.pb
