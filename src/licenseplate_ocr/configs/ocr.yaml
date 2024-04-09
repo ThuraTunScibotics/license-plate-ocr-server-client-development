@@ -1,0 +1,21 @@
+yolox:
+  gpu        : True
+  fp16       : True
+  legacy     : False
+  tensor_rt  : False
+  conf       : 0.6
+  nms        : 0.45
+  img_size   : [960, 960]
+  exp_file   : 'exps/example/yolox_voc/yolox_voc_s.py'
+  weight     : "/home/thuratun/thura_tun_personal/license_plate_web_app/src/licenseplate_ocr/ocr_engine/weight_file/best_ckpt.pth"
+
+super_resolution:
+  spr_model  : "/home/thuratun/thura_tun_personal/license_plate_web_app/src/licenseplate_ocr/ocr_engine/sr_model_path/LapSRN_x4.pb"
+
+paddle_ocr:
+  use_angle  : True
+  language       : 'en'
+
+logger:
+  path       : "../ocr_server/static/log"
+  
