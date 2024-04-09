@@ -1,0 +1,350 @@
+{% extends "layout.html" %}
+
+{% block body %}
+
+
+    <div class="container">
+        <br><br>
+        <!-- Uploading Process -->
+        <form id="upload_form" enctype="multipart/form-data">
+            <div class="input-group">
+                <input type="file" class="form-control" id="image_name" name="image_name" style="border: 1px solid #000000;" required>
+                <input type="submit" value="Upload" id="upload_image" class="btn btn-outline-secondary" style="background-color: #181717; border: 1px solid #000000;" id="upload_button">
+            </div>
+        </form>
+        
+
+        <div class="img-container" style="display: flex;">
+            <div class="left-container" style="flex: 1; margin-top: 30px;">
+                <h3>Prediction and Recognition Result</h3>
+                <div class="prediction-container" style="width: 600px; height: 500px; overflow: hidden;">
+                    <!-- Predicted image will be displayed here (resize to fit container) -->
+                    <img id="predicted-image" class="img-fluid" src="" alt="" style="max-width: 100%; max-height: 100%; display: block; margin: auto;">
+                </div>
+            </div>
+
+            <div class="right-container" style="flex: 2; margin-top: 30px;">
+                <table class="crop-img-container" style="border: solid black; width: 100%;">
+                    <thead style="border: solid black;">
+                        <tr>
+                            <th style="background-color: aquamarine;">Cropped License Plate</th>
+                            <th style="background-color: burlywood;">Text</th>
+                        </tr>
+                    </thead>
+                    <tbody style="border: solid gray;">
+                        <!-- This tbody will be populated with the ROI images and recognized text -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+
+        <!-- Downloading Process -->
+        <div style="text-align: center; position: fixed; bottom: 60px; background-color: #f5f0f0; border: 3px solid #000000;">
+            <button onclick="sendIDAndFilename('/download_roi_image')">Download ROI Image</button>
+            <button onclick="sendIDAndFilename('/download_pred_image')">Download Predicted Image</button>
+        </div>
+    </div>
+
+    <script>
+        var ID;
+        var filename;
+        var predictionContainer = document.querySelector('.prediction-container');
+        predictionContainer.innerHTML = "";
+        
+        document.getElementById('upload_form').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            var uploadFile = document.getElementById('image_name').files[0];
+            console.log(uploadFile)
+            if (!uploadFile) {
+                console.log("No file uploaded");
+                return;
+            }
+            filename = uploadFile.name
+            // Read the file as the data URL
+            var reader = new FileReader();
+            reader.onload = function(event) {
+                var currentDate = new Date();
+                
+                var year = currentDate.getFullYear();
+                var month = currentDate.getMonth() + 1;
+                var day = currentDate.getDate();
+                var hours = currentDate.getHours();
+                var minutes = currentDate.getMinutes();
+                var seconds = currentDate.getSeconds();
+                ID = year+''+month+''+day+'_'+hours+''+minutes+''+seconds;
+                // var formattedUploadTime = currentDate.toLocaleString();
+
+                var base64String = event.target.result.split(',')[1];
+                sendBase64ToAPI(base64String, filename, ID);
+                // console.log("base64String: ", base64String)
+                // console.log("DateTime: ", formattedUploadTime)
+            }
+            reader.readAsDataURL(uploadFile)
+            // var formData = new FormData(this);
+        });
+
+        function sendBase64ToAPI(base64String, filename, ID) {
+            $.ajax({
+                url: '/upload_image',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({'base64_image': base64String, 'filename': filename, 'ID': ID}),
+                success: function(response) {
+                    console.log("Response::: ", response);
+
+                    handleResponse(response);
+                    // var resultImageBase64 = response.result_base64;
+
+                    // $('#result_image').attr('src', 'data:image/jpeg;base64,' + resultImageBase64);
+                },
+                error: function(error) {
+                    console.log(error);
+                }
+            });
+        }
+
+        function handleResponse(response) {
+            if (response && response.result_base64 && response.roi_base64_list && response.plate_numbers_list) {
+                
+                // Clear the previous WebView after new response
+                var predictedImage = document.getElementById('predicted-image')
+                // var predictedImage = document.getElementById('predicted-image');
+                // if (predictedImage.src !== "") {
+                //     // An image is uploaded in the left-container
+                //     console.log('An image is uploaded in the left-container.');
+                // } else {
+                //     // No image is uploaded in the left-container
+                //     console.log('No image is uploaded in the left-container.');
+                // }
+
+                // var leftContainer = document.querySelector('.prediction-container')
+                // leftContainer.innerHTML = ""
+
+                var rightContainer = document.querySelector('.right-container tbody');
+                rightContainer.innerHTML = ""
+
+                // Get the Response of /upload_image API
+                var encodeData = response.result_base64;
+                var roi_str_list = response.roi_base64_list;
+                var plate_number_list = response.plate_numbers_list
+
+                console.log("ROI Str List: ", roi_str_list)
+                console.log("Plate Number List: ", plate_number_list)
+                console.log("EncodedData: ", encodeData);
+                var decodedImage = atob(encodeData.split(',')[1]);
+                console.log("DecodedData: ", decodedImage);
+
+                // var predictionContainer = document.querySelector('.prediction-container');
+                
+                // Convert the decoded image data to a Uint8Array
+                var imageDataArray = new Uint8Array(decodedImage.length);
+                for (var i = 0; i < decodedImage.length; i++) {
+                    imageDataArray[i] = decodedImage.charCodeAt(i);
+                }
+                
+                // Create a Blob object from the Uint8Array
+                var blob = new Blob([imageDataArray], {type: 'image/png'});
+
+                // Create a data URL representing the decoded image
+                var objectURL = URL.createObjectURL(blob);
+
+                // Create an image element
+                var img = new Image();
+
+                // Set onload event to execute when the image has loaded
+                img.onload = function () {
+                    // Create a canvas element
+                    var canvas = document.createElement('canvas');
+                    var ctx = canvas.getContext('2d');
+
+                    // Set the canvas dimensions to the desired size
+                    var width = 600; // Adjust this value to your desired width
+                    var height = 500; // Adjust this value to your desired height
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    // Draw the image onto the canvas with the desired dimensions
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Convert the canvas content back to a data URL
+                    var resizedObjectURL = canvas.toDataURL();
+
+                    // Set the source of the image element to the resized data URL
+                    img.src = resizedObjectURL;
+                };
+
+                if (predictionContainer.childNodes.length > 0) {
+                    console.log("One image already exist!!!");
+                    while (predictionContainer.firstChild) {
+                        predictionContainer.removeChild(predictionContainer.firstChild);
+                        console.log("Image/Child successfully Removed....")
+                    }
+                }
+                    
+                // Append the resized image to the prediction container
+                predictionContainer.appendChild(img);
+                //Set the source of the image element to the object URL
+                img.src = objectURL
+                // Display the decoded image on the UI
+                // predictionContainer.appendChild(img);
+
+                // Append the image to the image container
+                // document.getElementById('imageContainer').appendChild(img);
+
+                // Select the right container element
+                var tbody = document.querySelector('.crop-img-container tbody');
+
+                // TO DO: Iterate Through the Loop
+                
+                roi_str_list.forEach(function(roi_item, index) {
+                    // console.log(roi_item);
+                    // var roi_item = roi_str_list[i];
+                    var plate_num = plate_number_list[index];
+                    console.log(plate_num);
+                    
+                    var decodedROI = atob(roi_item.split(',')[1]);
+                    var roiDataArray = new Uint8Array(decodedROI.length);
+                    for (var i=0; i < decodedROI.length; i++) {
+                        roiDataArray[i] = decodedROI.charCodeAt(i)
+                    }
+
+                    var blob = new Blob([roiDataArray], {type: 'image/png'});
+
+                    var objectURL = URL.createObjectURL(blob);
+
+                    var roi = document.createElement('img');
+                    roi.src = objectURL;
+                    roi.className = 'rounded float-left img-fluid';
+                    roi.alt = 'ROI Image';
+
+                    // Create text node for recognized text
+                    var recognizedText = document.createTextNode(plate_num);
+
+                    // Create table row
+                    var newRow = document.createElement('tr');
+
+                    // Create table cells for image and text
+                    var imgCell = document.createElement('td');
+                    var textCell = document.createElement('td');
+
+                    // Append ROI image to image cell
+                    imgCell.appendChild(roi);
+                    // Append Recognized Text to text cell
+                    textCell.appendChild(recognizedText);
+
+                    newRow.appendChild(imgCell);
+                    newRow.appendChild(textCell);
+
+                    // Append table row to tbody
+                    tbody.appendChild(newRow)
+                });
+
+                document.getElementById('image_name').value = "";
+            }
+
+            else {
+                console.error('Response does not contain base64 image data');
+            }
+        }
+
+        function sendIDAndFilename(endpoint) {
+            // console.log("In Send File: ", predImageName)
+            console.log("ID: ", ID)
+            console.log("filename: ", filename)
+            $.ajax({
+                url: endpoint,
+                type: 'GET',
+                contentType: 'application/json',
+                data: {'ID': ID, 'filename': filename},
+                success: function(response) {
+                    console.log(response); // Handle success response
+                    // TO DO: Select Download Directory and Save the base64 as image
+                    if (response.img_name_list && response.roi_base64_list) {
+                        handleDownloadRoi(response);
+                    }
+                    else if (response && response.pred_base64_img) {
+                        handleDownloadPred(response);
+                    }
+                },
+                error: function(error) {
+                    console.log(error); // Handle error
+                }
+            });
+        }
+
+        function handleDownloadRoi(response) {
+            if (response && response.roi_base64_list && response.img_name_list) {
+                var roi_str_list = response.roi_base64_list;
+                console.log("roi_str_list: ", roi_str_list)
+                var roi_img_name_list = response.img_name_list;
+                console.log("roi_img_name_list: ", roi_img_name_list);
+
+                // Create a temporary anchor element
+                var link = document.createElement('a');
+                document.body.appendChild(link);
+                
+                roi_str_list.forEach(function(roi_item, index) {
+                    
+                    var fileName = roi_img_name_list[index]
+                    console.log("Filename: ", fileName)
+                    var decodedROI = atob(roi_item.split(',')[1]);
+                    var roiDataArray = new Uint8Array(decodedROI.length);
+
+                    for (var i=0; i < decodedROI.length; i++) {
+                        roiDataArray[i] = decodedROI.charCodeAt(i)
+                    }
+
+                    var blob = new Blob([roiDataArray], {type: 'image/png'});
+
+                    // Create a URL for the blob and set it as the anchor's href
+                    var objectURL = URL.createObjectURL(blob);
+                    link.href = objectURL;
+
+                    link.download = fileName;
+                    
+                    // Programmatically trigger the download
+                    link.click();
+                });
+                // Clean up by removing the temporary anchor element
+                document.body.removeChild(link);
+            }
+        }
+
+        function handleDownloadPred(response) {
+            if (response && response.pred_base64_img && response.filename) {
+                var pred_base64 = response.pred_base64_img;
+                var filename = response.filename;
+                console.log("/download_pred_response: ", response)
+
+                var decodedImage = atob(pred_base64.split(',')[1]);
+                var imgDataArray = new Uint8Array(decodedImage.length);
+
+                for (var i=0; i < decodedImage.length; i++) {
+                    imgDataArray[i] = decodedImage.charCodeAt(i)
+                }
+
+                // Create a temporary anchor element
+                var link = document.createElement('a');
+                document.body.appendChild(link);
+
+                var blob = new Blob([imgDataArray], {type: 'image/png'});
+
+                // Create a URL for the blob and set it as the anchor's href
+                var objectURL = URL.createObjectURL(blob);
+                link.href = objectURL;
+
+                link.download = filename;
+                
+                // Programmatically trigger the download
+                link.click();
+
+                document.body.removeChild(link);
+                
+            }
+        }
+        
+    </script>
+
+{% endblock %}
